@@ -11,27 +11,71 @@ from math import *
 
 from deletedefaultobjects import delete_all
 
+def rad(ang):
+    while ang > 180:
+        ang -= 360
+    while ang < -180:
+        ang += 360
+    return radians(ang)
 
 class Contorno2D:
     def __init__(self):
         self.verts = [Vector((0, 0, 0))]
         self.direction = 0.0
-        self.definition=10
+        self.definition=20
 
     def add_line(self, l):
         #print(f"add_line curr={self.verts[-1]}")
-        self.verts.append(Vector((self.verts[-1].x + l * cos(radians(self.direction)), self.verts[-1].y + l * sin(radians(self.direction)), 0)))
+        self.verts.append(Vector((self.verts[-1].x + l * cos(rad(self.direction)), self.verts[-1].y + l * sin(rad(self.direction)), 0)))
 
     def rotate(self, ang):
         self.direction += ang
 
-    def curve(self, raggio, angolo):
-        raggio = float(raggio) / self.definition
-        print(f"curve raggio={raggio}")
-        step = float(angolo) / self.definition
-        print(f"step={step}")
+    def calcIntersection(self, ax, bx, ay, by, anga, angb):
+        ma = tan(rad(anga))
+        mb = tan(rad(angb))
+        #y = ax + c  c = ax - y =  ma*ax - ay
+        #y = bx + d  d = bx - y =  mb*bx - by
+        aq = ma*ax + ay
+        bq = mb*bx + by
+        cx = (bq - aq) / (mb - ma)
+        if (abs(cos(rad(anga))) < 0.00001):
+            cy = mb*cx + bq
+        else:
+            cy = ma*cx + aq
+
+        print(f"ma={ma} mb={mb} aq={aq} bq={bq} cx={cx} cy={cy}")
+        return cx, cy
+
+    def curve(self, deltacurr, deltanext, angolo):
+        ax = self.verts[-1].x
+        ay = self.verts[-1].y
+        curdir = self.direction
+        newdir = self.direction+angolo
+
+        bx = ax+deltacurr * cos(rad(curdir))
+        by = ay+deltacurr * sin(rad(curdir))
+        bx = bx+deltanext * cos(rad(newdir))
+        by = by+deltanext * sin(rad(newdir))
+
+        print(f"curdir={curdir} newdir={newdir}")
+        cx, cy = self.calcIntersection(ax, bx, ay, by, curdir, newdir)
+
+        print(f"ax={ax}, ay={ay}")
+        print(f"bx={bx}, by={by}")
+        print(f"cx={cx}, cy={cy}")
         for s in range(self.definition):
-            self.verts.append(Vector((self.verts[-1].x + raggio * cos(radians(self.direction+s*step)), self.verts[-1].y + raggio * sin(radians(self.direction+s*step)), 0)))
+            d = float(s+1)/self.definition
+            pax = ax + (cx-ax)*d
+            pay = ay + (cy-ay)*d
+            pbx = cx + (bx-cx)*d
+            pby = cy + (by-cy)*d
+            print(f"s={s} d={d} pax={pax} pay={pay} pbx={pbx} pby={pby}")
+            sx = pax + (pbx-pax)*d
+            sy = pay + (pby-pay)*d
+            print(f"sx={sx}, sy={sy} len={len(self.verts)}")
+
+            self.verts.append(Vector((sx, sy, 0)))
         self.direction += angolo
 
 
@@ -73,7 +117,8 @@ class Contorno2D:
     def dsl_parse(self, str):
         done=False
         while not done:
-            mg=re.match("L(\d+)|R(-?\d+)|C(\d+):(-?\d+)", str)
+            print(f"A. lastx={self.verts[-1].x}, lasty={self.verts[-1].y} len={len(self.verts)}")
+            mg=re.match("L(\d+)|R(-?\d+)|C(-?\d+):(-?\d+):(-?\d+)", str)
             if mg:
                 cmd=mg.group()
                 if cmd[0]=="L":
@@ -82,18 +127,18 @@ class Contorno2D:
                         self.rotate(int(cmd[1:]))
                 elif cmd[0]=="C":
                         print(cmd[1:])
-                        raggio, angolo = cmd[1:].split(":")
-                        print(f"raggio={raggio}")
-                        print(f"angolo={angolo}")
-                        self.curve(int(raggio), int(angolo))
+                        deltax, deltay, angolo = cmd[1:].split(":")
+                        print(f"deltax={deltax}, deltay={deltay}, angolo={angolo}")
+                        self.curve(float(deltax), float(deltay), float(angolo))
                 print(cmd)
                 str = str[len(cmd):]
             else:
                 done=True
                 print("niet")
+            print(f"Z. lastx={self.verts[-1].x}, lasty={self.verts[-1].y} len={len(self.verts)}")
 
     def prova(self):
-        self.dsl_parse("L5C1:-90L5C1:-90L5C1:-90L5C2:-90")
+        self.dsl_parse("L5C2:2:90L5C2:2:90L5C2:2:90L5C2:2:90")
         """
         cmds = [
                 ["L", 100],
